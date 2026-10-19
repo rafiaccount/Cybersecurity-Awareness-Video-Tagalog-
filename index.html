@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -98,6 +97,10 @@
 
     const VIDEO_ID = "DZKo2fLqL_Q";
 
+    // Caption language code. "fil" = Filipino.
+    // If the video only has a Tagalog track, try "tl" instead.
+    const CAPTION_LANG = "fil";
+
     const FORM_URL =
       "https://forms.cloud.microsoft/Pages/ResponsePage.aspx?id=HFv4cHjEkEOjr9j_PUzWOWAVVMe-UMtClxYBjAQB2N1URjRHT0U2VDlGNzJXWUhPNTg2MFU1UVA4Sy4u";
 
@@ -137,7 +140,10 @@
         playerVars: {
           playsinline: 1,
           rel: 0,
-          autoplay: 1
+          autoplay: 1,
+          cc_load_policy: 1,       // show captions by default
+          cc_lang_pref: CAPTION_LANG, // preferred caption language
+          hl: "en"                 // player interface language
         },
 
         events: {
@@ -153,11 +159,12 @@
     // =====================================
 
     function onPlayerReady(event) {
+      // Try to play with sound. Most browsers will block this
+      // until the visitor clicks, so a Start button is the fallback.
       event.target.playVideo();
 
       status.textContent = "Attempting to start video...";
 
-      // Show a start button if autoplay is blocked.
       setTimeout(() => {
         if (
           !finished &&
@@ -167,17 +174,19 @@
           startButton.hidden = false;
 
           status.textContent =
-            "If the video does not start, press Start Video.";
+            "Press Start Video to begin.";
         }
       }, 3000);
     }
 
-    // Manual fallback if the browser blocks autoplay.
+    // The click counts as user interaction, so sound is allowed.
     startButton.addEventListener("click", () => {
       if (!player || finished) return;
 
       startButton.hidden = true;
 
+      player.unMute();
+      player.setVolume(100);
       player.playVideo();
 
       status.textContent = "Starting video...";
@@ -195,6 +204,17 @@
 
         // Keep the survey hidden during playback.
         surveyLink.hidden = true;
+
+        // Force the caption track if the playerVars didn't stick.
+        // (Undocumented YouTube option, so it is wrapped in try/catch.)
+        try {
+          player.loadModule("captions");
+          player.setOption("captions", "track", {
+            languageCode: CAPTION_LANG
+          });
+        } catch (e) {
+          console.warn("Could not set caption track", e);
+        }
 
         status.textContent =
           "Video playing. Please watch until the end.";
