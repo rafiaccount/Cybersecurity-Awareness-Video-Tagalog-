@@ -1,0 +1,261 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <title>Video Awareness Survey</title>
+
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 850px;
+      margin: 40px auto;
+      padding: 20px;
+      text-align: center;
+      background: #f5f7fa;
+      color: #222;
+    }
+
+    .container {
+      background: white;
+      padding: 24px;
+      border-radius: 12px;
+      box-shadow: 0 2px 10px #00000010;
+    }
+
+    .video {
+      width: 100%;
+      aspect-ratio: 16 / 9;
+      margin: 20px 0;
+      background: black;
+    }
+
+    #player {
+      width: 100%;
+      height: 100%;
+    }
+
+    #status {
+      color: #555;
+      font-size: 14px;
+    }
+
+    .button {
+      display: inline-block;
+      background: #1769e0;
+      color: white;
+      padding: 12px 20px;
+      border: none;
+      border-radius: 6px;
+      text-decoration: none;
+      cursor: pointer;
+      margin: 8px;
+      font-size: 15px;
+    }
+
+    .button:hover {
+      background: #0d50b5;
+    }
+
+    .button[hidden] {
+      display: none !important;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+    <h1>Watch the Video</h1>
+
+    <p>
+      Please watch the entire video.
+      You will be redirected to the survey when it finishes.
+    </p>
+
+    <div class="video">
+      <div id="player"></div>
+    </div>
+
+    <p id="status" role="status" aria-live="polite">
+      Loading video...
+    </p>
+
+    <button id="startButton" class="button" hidden>
+      Start Video
+    </button>
+
+    <a id="surveyLink" class="button" href="#" hidden>
+      Open Survey
+    </a>
+  </div>
+
+  <script>
+    // =====================================
+    // CONFIGURATION
+    // =====================================
+
+    const VIDEO_ID = "IyDGzKX9dmM";
+
+    const FORM_URL =
+      "https://forms.cloud.microsoft/Pages/ResponsePage.aspx?id=HFv4cHjEkEOjr9j_PUzWOWAVVMe-UMtClxYBjAQB2N1UNjkwTzVQMTU5UlI5VTNSTU1DQVRDNFBJUC4u";
+
+    // =====================================
+    // INITIAL STATE
+    // =====================================
+
+    let player;
+    let finished = false;
+
+    const status = document.getElementById("status");
+    const startButton = document.getElementById("startButton");
+    const surveyLink = document.getElementById("surveyLink");
+
+    // Hide the survey button immediately on page load.
+    surveyLink.hidden = true;
+    startButton.hidden = true;
+
+    surveyLink.href = FORM_URL;
+
+    // =====================================
+    // LOAD YOUTUBE PLAYER API
+    // =====================================
+
+    const tag = document.createElement("script");
+    tag.src = "https://www.youtube.com/iframe_api";
+    document.head.appendChild(tag);
+
+    // =====================================
+    // INITIALIZE PLAYER
+    // =====================================
+
+    function onYouTubeIframeAPIReady() {
+      player = new YT.Player("player", {
+        videoId: VIDEO_ID,
+
+        playerVars: {
+          playsinline: 1,
+          rel: 0,
+          autoplay: 1
+        },
+
+        events: {
+          onReady: onPlayerReady,
+          onStateChange: onPlayerStateChange,
+          onError: onPlayerError
+        }
+      });
+    }
+
+    // =====================================
+    // AUTOPLAY
+    // =====================================
+
+    function onPlayerReady(event) {
+      event.target.mute();
+      event.target.playVideo();
+
+      status.textContent = "Attempting to start video...";
+
+      // Show a start button if autoplay is blocked.
+      setTimeout(() => {
+        if (
+          !finished &&
+          player &&
+          player.getPlayerState() !== YT.PlayerState.PLAYING
+        ) {
+          startButton.hidden = false;
+
+          status.textContent =
+            "If the video does not start, press Start Video.";
+        }
+      }, 3000);
+    }
+
+    // Manual fallback if the browser blocks autoplay.
+    startButton.addEventListener("click", () => {
+      if (!player || finished) return;
+
+      startButton.hidden = true;
+
+      player.mute();
+      player.playVideo();
+
+      status.textContent = "Starting video...";
+    });
+
+    // =====================================
+    // MONITOR VIDEO PLAYBACK
+    // =====================================
+
+    function onPlayerStateChange(event) {
+      if (finished) return;
+
+      if (event.data === YT.PlayerState.PLAYING) {
+        startButton.hidden = true;
+
+        // Keep the survey hidden during playback.
+        surveyLink.hidden = true;
+
+        status.textContent =
+          "Video playing. Please watch until the end.";
+      }
+
+      if (event.data === YT.PlayerState.BUFFERING) {
+        status.textContent = "Buffering video...";
+      }
+
+      if (event.data === YT.PlayerState.PAUSED) {
+        status.textContent =
+          "Video paused. Resume playback to continue.";
+      }
+
+      if (event.data === YT.PlayerState.ENDED) {
+        finishVideo();
+      }
+    }
+
+    // =====================================
+    // VIDEO COMPLETION
+    // =====================================
+
+    function finishVideo() {
+      if (finished) return;
+
+      finished = true;
+      startButton.hidden = true;
+
+      status.textContent =
+        "Video completed! Opening the survey...";
+
+      // Only reveal the survey after playback ends.
+      surveyLink.hidden = false;
+
+      // Attempt automatic redirection.
+      window.location.href = FORM_URL;
+
+      // Fallback if the page remains open.
+      setTimeout(() => {
+        status.textContent =
+          "If you were not redirected, click below to open the survey.";
+      }, 2000);
+    }
+
+    // =====================================
+    // VIDEO ERROR HANDLING
+    // =====================================
+
+    function onPlayerError(event) {
+      startButton.hidden = true;
+      surveyLink.hidden = true;
+
+      status.textContent =
+        "Unable to play the video. Check the video ID, " +
+        "embedding permissions, and internet connection.";
+
+      console.error("YouTube player error:", event.data);
+    }
+  </script>
+</body>
+</html>
